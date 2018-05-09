@@ -40,12 +40,13 @@ class Server:
         #following stores the data for game
         self.shuffled = False
         self.gameinfo = [] #dictionaries store info of the game players
-        self.bet = 200
+        self.highest_bet = 200
         self.jackpot = 0
         self.name_list = []
         self.served_cards = []
         self.cards_count = 3
         self.player_count = 0
+        self.bet = {}
 
 
 
@@ -196,7 +197,7 @@ class Server:
 #             Start a Texas Poker Game among all people in the chat room
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
             elif msg["action"] == "game" and msg["ready"] == "request":
-                global ready_player
+                global ready_player, money
                 print("ServerSide", msg["player"], "wants to play a game!" )
                 from_name = self.logged_sock2name[from_sock]
                 # Finding the list of people to send to
@@ -238,15 +239,17 @@ class Server:
                     print("card list synthesized")
                     self.name_list = name_list
                     # this defines a starter
-                    self.round_starter = [self.name_list[0], 0]
 
                     for n in name_list:
-                        if len(self.gameinfo) <= len(name_list):
-                            self.gameinfo.append({'player':n, 'money':10000, "winner":"", 'handcard':card_list[name_list.index(n)]})
+                        if len(self.gameinfo) < len(name_list):
+                            self.gameinfo.append({'player':n, 'money':10000, "winner":"",\
+                                                    'handcard':card_list[name_list.index(n)]})
                         else:
                             for dics in self.gameinfo:
                                 if dics["player"] == n:
-                                    dics["handcard"]:card_list[name_list.index(n)]
+                                    dics["handcard"] = card_list[name_list.index(n)]
+                                    dics["winner"] = ""
+                                    dics["type"] = ""
 
                         for dic in self.gameinfo:
                             if dic["player"] == n:
@@ -265,86 +268,118 @@ class Server:
                     if info_dict["player"] == msg["player"]:
                         info_dict["winner"] = "giveup"
                 self.name_list.remove(msg["player"])
+                #if self.player_count == len(self.name_list-1):
                 print("A player has given up", self.name_list)
 
-            elif msg["action"] == "game" and msg["ready"] == "firstbet":
-                for info_dict in self.gameinfo:
-                    if info_dict["player"] == msg["player"]:
-                        info_dict["money"] -= msg["bet"]
 
-                self.jackpot += msg["bet"]
+            elif msg["action"] == "game" and msg["ready"] == "firstbet":
                 self.player_count += 1
-                if self.bet <= msg["bet"]:
-                    self.bet = msg["bet"]
-                to_sock = self.logged_name2sock[msg["player"]]
-                mysend(to_sock, json.dumps({"action": "server_msg", "info": ("Round finished, JACKPOT:\n" + "   " \
-                                                                             + str(self.jackpot) + "\n3 of 5 served cards:\n" \
-                                                                             + str(self.served_cards[:-2]))}))
-                if self.player_count == len(self.name_list):
+                if msg["bet"] == 0:
+                    self.name_list.remove(msg["player"])
+                    for info_dict in self.gameinfo:
+                        if info_dict["player"] == msg["player"]:
+                            info_dict["winner"] = "giveup"
+                else:
+                    for info_dict in self.gameinfo:
+                        if info_dict["player"] == msg["player"]:
+                            info_dict["money"] -= msg["bet"]
+
+                    self.jackpot += msg["bet"]
+                    self.bet[msg["player"]] = msg["bet"]
+                    if self.highest_bet <= msg["bet"]:
+                        self.highest_bet = msg["bet"]
+                    to_sock = self.logged_name2sock[msg["player"]]
+                    mysend(to_sock, json.dumps({"action": "server_msg", "info": ("Round finished, JACKPOT:\n" + "   " \
+                                                                                 + str(self.jackpot) + "\n3 of 5 served cards:\n" \
+                                                                                 + str(self.served_cards[:-2]))}))
+                if self.player_count >= len(self.name_list):
                     self.player_count = 0
                     for n in self.name_list:
                         to_sock = self.logged_name2sock[n]
                         for dic in self.gameinfo:
                             if dic["player"] == n:
                                 money = dic["money"]
-                        mysend(to_sock,json.dumps({"action":"game","ready":"secondbet","money":money,"least_bet":self.bet}))
+                        mysend(to_sock,json.dumps({"action":"game","ready":"secondbet","money":money,"least_bet":self.highest_bet}))
+
 
             elif msg["action"] == "game" and msg["ready"] == "secondbet":
-                for info_dict in self.gameinfo:
-                    if info_dict["player"] == msg["player"]:
-                        info_dict["money"] -= (msg["bet"] - self.bet)
-                self.jackpot += (msg["bet"] - self.bet)
                 self.player_count += 1
-                if self.bet <= msg["bet"]:
-                    self.bet = msg["bet"]
-                to_sock = self.logged_name2sock[msg["player"]]
-                mysend(to_sock, json.dumps({"action": "server_msg", "info": ("Round finished, JACKPOT:\n" + "   " \
-                                                                             + str(self.jackpot) + "\n4 of 5 served cards:\n" \
-                                                                             + str(self.served_cards[:-1]))}))
-                if self.player_count == len(self.name_list):
+                if msg["bet"] == 0:
+                    self.name_list.remove(msg["player"])
+                    for info_dict in self.gameinfo:
+                        if info_dict["player"] == msg["player"]:
+                            info_dict["winner"] = "giveup"
+                else:
+                    for info_dict in self.gameinfo:
+                        if info_dict["player"] == msg["player"]:
+                            info_dict["money"] -= (msg["bet"] - self.bet[msg["player"]])
+                    self.jackpot += (msg["bet"] - self.bet[msg["player"]])
+                    self.bet[msg["player"]] = msg["bet"]
+                    if self.highest_bet <= msg["bet"]:
+                        self.highest_bet = msg["bet"]
+                    to_sock = self.logged_name2sock[msg["player"]]
+                    mysend(to_sock, json.dumps({"action": "server_msg", "info": ("Round finished, JACKPOT:\n" + "   " \
+                                                                                 + str(self.jackpot) + "\n4 of 5 served cards:\n" \
+                                                                                 + str(self.served_cards[:-1]))}))
+                if self.player_count >= len(self.name_list):
                     self.player_count = 0
                     for n in self.name_list:
                         to_sock = self.logged_name2sock[n]
                         for dic in self.gameinfo:
                             if dic["player"] == n:
                                 money = dic["money"]
-                        print({"action": "game", "ready": "thirdbet", "money": money, "least_bet": self.bet})
-                        mysend(to_sock, json.dumps({"action": "game", "ready": "thirdbet", "money": money, "least_bet": self.bet}))
+                        print({"action": "game", "ready": "thirdbet", "money": money, "least_bet": self.highest_bet})
+                        mysend(to_sock, json.dumps({"action": "game", "ready": "thirdbet", "money": money, "least_bet": self.highest_bet}))
 
 
             elif msg["action"] == "game" and msg["ready"] == "thirdbet":
-                for info_dict in self.gameinfo:
-                    if info_dict["player"] == msg["player"]:
-                        info_dict["money"] -= (msg["bet"] - self.bet)
-                self.jackpot += (msg["bet"] - self.bet)
                 self.player_count += 1
-                if self.bet <= msg["bet"]:
-                    self.bet = msg["bet"]
-                to_sock = self.logged_name2sock[msg["player"]]
-                mysend(to_sock, json.dumps({"action": "server_msg", "info": ("Round finished, JACKPOT:\n" + "   " \
-                                                                             + str(self.jackpot) + "\n5 of 5 served cards:\n" \
-                                                                             + str(self.served_cards))}))
-                if self.player_count == len(self.name_list):
+                if msg["bet"] == 0:
+                    self.name_list.remove(msg["player"])
+                    for info_dict in self.gameinfo:
+                        if info_dict["player"] == msg["player"]:
+                            info_dict["winner"] = "giveup"
+                else:
+                    for info_dict in self.gameinfo:
+                        if info_dict["player"] == msg["player"]:
+                            info_dict["money"] -= (msg["bet"] - self.bet[msg["player"]])
+                    self.jackpot += (msg["bet"] - self.bet[msg["player"]])
+                    self.bet[msg["player"]] = msg["bet"]
+                    if self.highest_bet <= msg["bet"]:
+                        self.highestbet = msg["bet"]
+                    to_sock = self.logged_name2sock[msg["player"]]
+                    mysend(to_sock, json.dumps({"action": "server_msg", "info": ("Round finished, JACKPOT:\n" + "   " \
+                                                                                 + str(self.jackpot) + "\n5 of 5 served cards:\n" \
+                                                                                 + str(self.served_cards))}))
+                if self.player_count >= len(self.name_list):
                     self.player_count = 0
                     for n in self.name_list:
                         to_sock = self.logged_name2sock[n]
                         for dic in self.gameinfo:
                             if dic["player"] == n:
                                 money = dic["money"]
-                        mysend(to_sock, json.dumps({"action": "game", "ready": "fourthbet", "money": money, "least_bet": self.bet}))
+                        mysend(to_sock, json.dumps({"action": "game", "ready": "fourthbet", "money": money, "least_bet": self.highest_bet}))
+
 
             elif msg["action"] == "game" and msg["ready"] == "final":
-                for info_dict in self.gameinfo:
-                    if info_dict["player"] == msg["player"]:
-                        info_dict["money"] -= (msg["bet"] - self.bet)
-                self.jackpot += (msg["bet"] - self.bet)
                 self.player_count += 1
-                if self.bet <= msg["bet"]:
-                    self.bet = msg["bet"]
-                to_sock = self.logged_name2sock[msg["player"]]
-                mysend(to_sock, json.dumps({"action": "server_msg","info":"Waiting other players to FINISH their last raise"}))
+                if msg["bet"] == 0:
+                    self.name_list.remove(msg["player"])
+                    for info_dict in self.gameinfo:
+                        if info_dict["player"] == msg["player"]:
+                            info_dict["winner"] = "giveup"
+                else:
+                    for info_dict in self.gameinfo:
+                        if info_dict["player"] == msg["player"]:
+                            info_dict["money"] -= (msg["bet"] - self.bet[msg["player"]])
+                    self.jackpot += (msg["bet"] - self.bet[msg["player"]])
+                    self.bet[msg["player"]] = msg["bet"]
+                    if self.highest_bet <= msg["bet"]:
+                        self.highest_bet = msg["bet"]
+                    to_sock = self.logged_name2sock[msg["player"]]
+                    mysend(to_sock, json.dumps({"action": "server_msg","info":"Waiting other players to FINISH their last raise"}))
 
-                if self.player_count == len(self.name_list):
+                if self.player_count >= len(self.name_list):
                     self.player_count = 0
                     winners_candidate = []
                     for info_dict in self.gameinfo:
@@ -353,21 +388,43 @@ class Server:
                         else:
                             info_dict["winner"] = ""
                     print(winners_candidate)
-                    #print(winner)
-                    winners,self.served_cards = find_winner(winners_candidate, self.served_cards)
-                    winner = winners[0]["winner"]
+
+                    winners = find_winner(winners_candidate, self.served_cards)
+                    winner = (winners[0])["winner"]
+                    print(winners)
                     print(winner)
-                    for n in self.name_list:
-                        if winner == n:
+                    if "," in winner:
+                        winner_list = winner.split(",")
+                    else:
+                        winner_list = [winner]
+                    for n in winner_list:
                             for info_dict in self.gameinfo:
                                 if info_dict["player"] == n:
-                                    info_dict["money"] += self.jackpot
-                                    money = info_dict.money
-                    self.name_list = []
+                                    info_dict["money"] += self.jackpot/len(winner_list)
+                                    type = info_dict["type"]
+
+                    for name in self.name_list:
+                        to_sock = self.logged_name2sock[name]
+                        mysend(to_sock, json.dumps({"action": "server_msg","info":( "$$$$$$$$$$$$$$$$$$$\n"+
+                                                                                    "$   The Winner is $\n "+
+                                                                                    str(winner_list) +"\n"+
+                                                                                    "$       with      $"+"\n"+
+                                                                                    "    "+ type +"\n"
+                                                                                    "$$$$$$$$$$$$$$$$$$$\n"+
+                                                                                   "$   Winner Prize $" + "\n"+
+                                                                                    str(self.jackpot))}))
+                    self.name_list = self.group.list_me(msg["player"])
                     self.jackpot = 0
-                    self.bet = 200
+                    self.highest_bet = 200
+                    self.bet = {}
                     self.cards_count = 3
-                    mysend(to_sock, json.dumps({"action": "server_msg","info":("The Winner is " + winner+ "\nAsset: " + str(money))}))
+                    print(self.gameinfo)
+                    self.shuffled = False
+
+
+                    for name in self.name_list:
+                        to_sock = self.logged_name2sock[name]
+                        mysend(to_sock,json.dumps({"action":"game","ready":"allready"}))
 
 
 

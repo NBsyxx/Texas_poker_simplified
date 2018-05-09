@@ -125,53 +125,86 @@ class ClientSM:
 
                 #系统消息，玩家消息
                 if peer_msg["action"] == "server_msg":
-                    print("$INFO$",peer_msg["info"])
+                    print("<INFO>\n",peer_msg["info"],"\n<INFO>")
+
+                if peer_msg["action"] == "game" and peer_msg["ready"] == "allready":
+                    mysend(self.s, json.dumps({"action":"game", "player":self.me, "ready":"allready"}))
+                    print("NEXT ROUND START!")
 
                 #一轮看牌以及盲注
-                if peer_msg["action"] == "game" and peer_msg["ready"] == "firstbet":
-                    print("\nmoney",peer_msg["money"],"\nleast bet", peer_msg["least_bet"])
+                elif peer_msg["action"] == "game" and peer_msg["ready"] == "firstbet":
+                    print("\nmoney",peer_msg["money"],"\nleast bet", peer_msg["least_bet"],"\nhandcard",peer_msg["handcard"])
                     money = peer_msg["money"]
                     bet = 100
                     while bet < peer_msg["least_bet"] and bet != 0:
-                        bet = int(input("Your Prefered Bet For Your Card?\n"))
-                    if bet == 0:
-                        mysend(self.s,json.dumps({"action":"game","ready":"giveup","player":self.me}))
-                    else:
-                        mysend(self.s,json.dumps({"action":"game","ready":"firstbet","player":self.me,"bet":bet}))
+                        bet = input("Your Prefered Bet For Your Card?\n")
+                        if bet.isdigit():
+                            bet = int(bet)
+                            if bet >= peer_msg["least_bet"] or bet == 0:
+                                break
+                            else:
+                                bet = 100
+                        else:
+                            print("enter number please!")
+                            bet = 100
+                    mysend(self.s, json.dumps({"action": "game", "ready": "firstbet", "player": self.me, "bet": bet}))
+
+
+
 
                 if peer_msg["action"] == "game" and peer_msg["ready"] == "secondbet":
                     print("\nmoney",peer_msg["money"],"\nHighest Bet Last Round:", peer_msg["least_bet"])
                     money = peer_msg["money"]
                     bet = 100
                     while bet < peer_msg["least_bet"] and bet != 0:
-                        bet = int(input("You Want to raise your bet to?\n"))
-                    if bet == 0:
-                        pass
-                    else:
-                        mysend(self.s,json.dumps({"action": "game", "ready": "secondbet", "player": self.me, "bet": bet}))
+                        bet = input("You Want to raise your bet to?\n")
+                        if bet.isdigit():
+                            bet = int(bet)
+                            if bet >= peer_msg["least_bet"] or bet == 0:
+                                break
+                            else:
+                                bet = 100
+                        else:
+                            print("enter number please!")
+                            bet = 100
+                    mysend(self.s,json.dumps({"action": "game", "ready": "secondbet", "player": self.me, "bet": bet}))
+
 
                 if peer_msg["action"] == "game" and peer_msg["ready"] == "thirdbet":
                     print("\nmoney",peer_msg["money"],"\nHighest Bet Last Round:", peer_msg["least_bet"])
                     money = peer_msg["money"]
                     bet = 100
                     while bet < peer_msg["least_bet"] and bet != 0:
-                        bet = int(input("You Want to raise your bet to?\n"))
-                    if bet == 0:
-                        pass
-                    else:
-                        mysend(self.s,json.dumps({"action": "game", "ready": "thirdbet", "player": self.me, "bet": bet}))
+                        bet = input("You Want to raise your bet to?\n")
+                        if bet.isdigit():
+                            bet = int(bet)
+                            if bet >= peer_msg["least_bet"] or bet == 0:
+                                break
+                            else:
+                                bet = 100
+                        else:
+                            print("enter number please!")
+                            bet = 100
+                    mysend(self.s,json.dumps({"action": "game", "ready": "thirdbet", "player": self.me, "bet": bet}))
+
 
                 if peer_msg["action"] == "game" and peer_msg["ready"] == "fourthbet":
                     print("\nmoney",peer_msg["money"],"\nHighest Bet Last Round:", peer_msg["least_bet"])
                     money = peer_msg["money"]
                     bet = 100
                     while bet < peer_msg["least_bet"] and bet != 0:
-                        bet = int(input("You Want to raise your bet to?\n"))
-                    if bet == 0:
-                        pass
-                    else:
-                        print("request winner")
-                        mysend(self.s,json.dumps({"action": "game", "ready": "final", "player": self.me, "bet": bet}))
+                        bet = input("You Want to raise your bet to?\n")
+                        if bet.isdigit():
+                            bet = int(bet)
+                            if bet >= peer_msg["least_bet"] or bet == 0:
+                                break
+                            else:
+                                bet = 100
+                        else:
+                            print("enter number please!")
+                            bet = 100
+                    print("Server Judging Winner!!, Wait")
+                    mysend(self.s,json.dumps({"action": "game", "ready": "final", "player": self.me, "bet": bet}))
 
 
 
