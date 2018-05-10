@@ -6,10 +6,10 @@ for a in dic3:
     for b in dic:
         card.append([a,b])
 
-print(card)
-print(len(card))
+#print(card)
+#print(len(card))
 random.shuffle(card)
-print(card)
+#print(card)
 
 
 
