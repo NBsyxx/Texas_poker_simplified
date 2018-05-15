@@ -1,9 +1,7 @@
 # ICS_chat_system
-<h2> WILL BE GRADED! </h2>
-<ol>
-<li>UP1</li>
-<li>UP2</li>
-<li>UP3Part1</li>
-<li>UP3Part2</li>
-</ol>
-<h1> Instructions in spec.pdf </h1>
+
+## A simplified texas hold'em poker
+
+[A link](https://www.youtube.com/watch?v=x4OF11UMMh8) is the introdution video on youtube
+
+can only play a five player game for one time, remember to click bet only once, other
