@@ -4,6 +4,7 @@ Created on Sun Apr  5 00:00:32 2015
 @author: zhengzhang
 """
 from chat_utils import *
+from guitest import *
 import json
 
 class ClientSM:
@@ -14,6 +15,13 @@ class ClientSM:
         self.out_msg = ''
         self.s = s
         self.handcard = ""
+        self.give = 0
+        self.wait = True
+        self.init_window = True
+        self.cardgame = True
+        self.firstgame = True
+        self.finish =True
+                    
     def set_state(self, state):
         self.state = state
 
@@ -125,53 +133,244 @@ class ClientSM:
 
                 #系统消息，玩家消息
                 if peer_msg["action"] == "server_msg":
-                    print("$INFO$",peer_msg["info"])
+                    print("<INFO>\n",peer_msg["info"],"\n<INFO>")
+                    
+                #receive server variable at the end of the game
+                if peer_msg["action"] == "gameinfodic":
+                    gameinfo = peer_msg["info"]
+
+                    #update the gui
+                    if self.me in gameinfo[0]['winner']:
+                        self.give = 4
+                        self.cardgame.c_prompt(self.give)
+                    else:
+                        self.give = 5
+                        self.cardgame.c_prompt(self.give)
+
+                    self.init_window.update()
+
+                    allcards=[]
+                    for i in gameinfo:
+                        allcards.append(i['handcard'][0])
+                        allcards.append(i['handcard'][1])
+
+                    self.cardgame.show(allcards[0],allcards[1],allcards[2],allcards[3],allcards[4],
+                                       allcards[5],allcards[6],allcards[7],allcards[8],allcards[9])
+
+                    for dic in  gameinfo:
+                        if dic['player']== self.me:
+                            money = dic['money']
+                            self.cardgame.c_mine(money)
+                            self.cardgame.c_total(gameinfo[0]['jackpot'])
+                            self.cardgame.c_high(gameinfo[0]['highest_bet'])
+
+                    self.init_window.update()
+                    
+                    
+
+                if peer_msg["action"] == "game" and peer_msg["ready"] == "allready":
+                    mysend(self.s, json.dumps({"action":"game", "player":self.me, "ready":"allready"}))
+                    print("NEXT ROUND START!")
 
                 #一轮看牌以及盲注
-                if peer_msg["action"] == "game" and peer_msg["ready"] == "firstbet":
-                    print("\nmoney",peer_msg["money"],"\nleast bet", peer_msg["least_bet"])
-                    money = peer_msg["money"]
-                    bet = 100
-                    while bet < peer_msg["least_bet"] and bet != 0:
-                        bet = int(input("Your Prefered Bet For Your Card?\n"))
-                    if bet == 0:
-                        mysend(self.s,json.dumps({"action":"game","ready":"giveup","player":self.me}))
+                elif peer_msg["action"] == "game" and peer_msg["ready"] == "firstbet":
+                    if self.init_window == True:
+                        self.init_window = Tk()
+
+                    if self.cardgame == True:
+                        self.cardgame = MY_GUI(self.init_window)
+
+                    if self.firstgame == True:
+                        #initial the gui
+                    
+    
+                        self.cardgame.set_init_window()
+                        self.cardgame.set_buttons()
+                        self.cardgame.fivecards()
+                        self.cardgame.players()
+                        self.cardgame.blank()
+                        self.cardgame.total()
+                        self.cardgame.mine()
+                        self.cardgame.prompt()
+                        self.cardgame.entry()
+                        self.cardgame.high()
+                        self.firstgame = False
+                        self.cardgame.my_cards(peer_msg['handcard'][0], peer_msg['handcard'][1])
+
+                        self.init_window.update()
                     else:
-                        mysend(self.s,json.dumps({"action":"game","ready":"firstbet","player":self.me,"bet":bet}))
+                        self.cardgame.restart()
+                        self.cardgame.c_high(0)
+                        self.cardgame.c_total(0)
+                        self.cardgame.c_my_cards(peer_msg['handcard'][0], peer_msg['handcard'][1])
+                        self.give = 1
+                        self.cardgame.c_prompt(self.give)
+                        self.init_window.update()
+                    
+                    print("\nmoney",peer_msg["money"],"\nleast bet", peer_msg["least_bet"],"\nhandcard",peer_msg["handcard"])
+                    money = peer_msg["money"]
+                    bet=100
+
+                    self.wait = True
+
+                    while self.wait == True:
+                        self.wait = self.cardgame.wait()
+                        print(self.wait)
+                        self.init_window.update()
+                        if self.wait == False:
+                            bet = self.cardgame.back()
+                            if bet.isdigit() and int(bet) >= peer_msg['least_bet']:
+                                bet = int(bet)
+                                break
+                            else:
+
+                                self.give = 3
+                                self.wait = True
+                                self.cardgame.c_prompt(self.give)
+                                self.init_window.update()
+                        '''while bet < peer_msg["least_bet"] and bet != 0:
+                        bet = input("Your Prefered Bet For Your Card?\n")'''
+
+
+
+
+
+                            
+                    self.give =2
+                    self.cardgame.c_prompt(self.give)
+                    self.init_window.update()
+                    mysend(self.s, json.dumps({"action": "game", "ready": "firstbet", "player": self.me, "bet": bet}))
+                    
+                    
+                        
+                        
+
+
 
                 if peer_msg["action"] == "game" and peer_msg["ready"] == "secondbet":
                     print("\nmoney",peer_msg["money"],"\nHighest Bet Last Round:", peer_msg["least_bet"])
                     money = peer_msg["money"]
-                    bet = 100
-                    while bet < peer_msg["least_bet"] and bet != 0:
-                        bet = int(input("You Want to raise your bet to?\n"))
-                    if bet == 0:
-                        pass
-                    else:
-                        mysend(self.s,json.dumps({"action": "game", "ready": "secondbet", "player": self.me, "bet": bet}))
+                    bet=100
+                    
+
+                    #update the gui
+                    self.give = 1
+                    self.cardgame.c_prompt(self.give)
+                    self.cardgame.c_mine(peer_msg['money'])
+                    self.cardgame.c_high(peer_msg['least_bet'])
+                    self.cardgame.c_total(peer_msg['jackpot'])
+                    self.cardgame.round_one(peer_msg['served_cards'][0],peer_msg['served_cards'][1],peer_msg['served_cards'][2])
+                    self.init_window.update()
+                    
+
+                    self.wait = True
+
+                    while self.wait == True:
+                        self.wait = self.cardgame.wait()
+                        self.init_window.update()
+                        if self.wait == False:
+                            bet = self.cardgame.back()
+                            if bet.isdigit() and int(bet) >= peer_msg['least_bet']:
+                                bet = int(bet)
+                                break
+                            else:
+
+                                self.give = 3
+                                self.wait = True
+                                self.cardgame.c_prompt(self.give)
+                                self.init_window.update()
+                        '''while bet < peer_msg["least_bet"] and bet != 0:
+                        bet = input("Your Prefered Bet For Your Card?\n")'''
+
+                    self.give = 2
+                    self.cardgame.c_prompt(self.give)
+                    self.init_window.update()
+                    mysend(self.s,json.dumps({"action": "game", "ready": "secondbet", "player": self.me, "bet": bet}))
+
 
                 if peer_msg["action"] == "game" and peer_msg["ready"] == "thirdbet":
                     print("\nmoney",peer_msg["money"],"\nHighest Bet Last Round:", peer_msg["least_bet"])
                     money = peer_msg["money"]
                     bet = 100
-                    while bet < peer_msg["least_bet"] and bet != 0:
-                        bet = int(input("You Want to raise your bet to?\n"))
-                    if bet == 0:
-                        pass
-                    else:
-                        mysend(self.s,json.dumps({"action": "game", "ready": "thirdbet", "player": self.me, "bet": bet}))
+
+                    #update the gui
+                    self.give = 1
+                    self.cardgame.c_prompt(self.give)
+                    self.cardgame.c_mine(peer_msg['money'])
+                    self.cardgame.c_high(peer_msg['least_bet'])
+                    self.cardgame.c_total(peer_msg['jackpot'])
+                    self.cardgame.round_two(peer_msg['served_cards'][3])
+                    self.init_window.update()
+                    
+
+
+                    
+                    self.wait = True
+
+                    while self.wait == True:
+                        self.wait = self.cardgame.wait()
+                        self.init_window.update()
+                        if self.wait == False:
+                            bet = self.cardgame.back()
+                            if bet.isdigit() and int(bet) >= peer_msg['least_bet']:
+                                bet = int(bet)
+                                break
+                            else:
+
+                                self.give = 3
+                                self.wait = True
+                                self.cardgame.c_prompt(self.give)
+                                self.init_window.update()
+                        '''while bet < peer_msg["least_bet"] and bet != 0:
+                        bet = input("Your Prefered Bet For Your Card?\n")'''
+
+                    self.give = 2
+                    self.cardgame.c_prompt(self.give)
+                    self.init_window.update()
+                    mysend(self.s,json.dumps({"action": "game", "ready": "thirdbet", "player": self.me, "bet": bet}))
+
 
                 if peer_msg["action"] == "game" and peer_msg["ready"] == "fourthbet":
                     print("\nmoney",peer_msg["money"],"\nHighest Bet Last Round:", peer_msg["least_bet"])
                     money = peer_msg["money"]
                     bet = 100
-                    while bet < peer_msg["least_bet"] and bet != 0:
-                        bet = int(input("You Want to raise your bet to?\n"))
-                    if bet == 0:
-                        pass
-                    else:
-                        print("request winner")
-                        mysend(self.s,json.dumps({"action": "game", "ready": "final", "player": self.me, "bet": bet}))
+
+                    
+                    #update the gui
+                    self.give = 1
+                    self.cardgame.c_prompt(self.give)
+                    self.cardgame.c_mine(peer_msg['money'])
+                    self.cardgame.c_high(peer_msg['least_bet'])
+                    self.cardgame.c_total(peer_msg['jackpot'])
+                    self.cardgame.round_three(peer_msg['served_cards'][4])
+                    self.init_window.update()
+                    
+
+
+                    
+                    self.wait = True
+
+                    while self.wait == True:
+                        self.wait = self.cardgame.wait()
+                        self.init_window.update()
+                        if self.wait == False:
+                            bet = self.cardgame.back()
+                            if bet.isdigit() and int(bet) >= peer_msg['least_bet']:
+                                bet = int(bet)
+                                break
+                            else:
+
+                                self.give = 3
+                                self.wait = True
+                                self.cardgame.c_prompt(self.give)
+                                self.init_window.update()
+                        '''while bet < peer_msg["least_bet"] and bet != 0:
+                        bet = input("Your Prefered Bet For Your Card?\n")'''
+
+                    self.give = 2
+                    self.cardgame.c_prompt(self.give)
+                    self.init_window.update()
+                    mysend(self.s,json.dumps({"action": "game", "ready": "final", "player": self.me, "bet": bet}))
 
 
 
