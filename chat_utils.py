@@ -3,8 +3,10 @@ import time
 
 # use local loop back address by default
 #CHAT_IP = '127.0.0.1'
+#CHAT_IP = '10.209.28.89'
 CHAT_IP = socket.gethostbyname(socket.gethostname())
-print("Local IP adress is",CHAT_IP,"\nmake sure to change IP in client terminal chat_utils.py ")
+print(CHAT_IP)
+print(CHAT_IP)
 CHAT_PORT = 1112
 SERVER = (CHAT_IP, CHAT_PORT)
 
